@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Revenue Insights Dashboard — Superstore 2015–2018</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --navy:    #0F2744;
+    --blue:    #1565C0;
+    --blue-lt: #1976D2;
+    --accent:  #FFB300;
+    --green:   #2E7D32;
+    --red:     #C62828;
+    --bg:      #F0F4F8;
+    --card:    #FFFFFF;
+    --border:  #DEE4ED;
+    --txt:     #1A2335;
+    --txt2:    #5A6678;
+    --sidebar-w: 220px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background:var(--bg); color:var(--txt); display:flex; height:100vh; overflow:hidden; }
+
+  /* ── Sidebar ── */
+  #sidebar {
+    width: var(--sidebar-w);
+    background: var(--navy);
+    display:flex; flex-direction:column;
+    padding: 0;
+    flex-shrink:0;
+    z-index:10;
+  }
+  #sidebar .logo {
+    padding: 22px 20px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  #sidebar .logo h2 { color:#fff; font-size:13px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; line-height:1.4; }
+  #sidebar .logo p  { color:rgba(255,255,255,0.45); font-size:11px; margin-top:4px; }
+  #sidebar nav { flex:1; padding: 12px 0; }
+  #sidebar nav .section-label { color:rgba(255,255,255,0.35); font-size:9px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; padding:12px 20px 4px; }
+  #sidebar nav a {
+    display:flex; align-items:center; gap:10px;
+    padding: 10px 20px;
+    color: rgba(255,255,255,0.65);
+    text-decoration:none;
+    font-size:13px;
+    cursor:pointer;
+    border-left:3px solid transparent;
+    transition:all .15s;
+  }
+  #sidebar nav a .icon { font-size:16px; width:20px; text-align:center; }
+  #sidebar nav a:hover { background:rgba(255,255,255,0.07); color:#fff; }
+  #sidebar nav a.active { background:rgba(21,101,192,0.4); color:#fff; border-left-color:var(--accent); }
+  #sidebar .footer { padding:16px 20px; border-top:1px solid rgba(255,255,255,0.08); }
+  #sidebar .footer p { color:rgba(255,255,255,0.3); font-size:10px; line-height:1.6; }
+
+  /* ── Main ── */
+  #main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  #topbar {
+    background:#fff;
+    border-bottom:1px solid var(--border);
+    padding:0 28px;
+    height:52px;
+    display:flex; align-items:center; justify-content:space-between;
+    flex-shrink:0;
+  }
+  #topbar h1 { font-size:15px; font-weight:700; color:var(--txt); }
+  #topbar .meta { font-size:12px; color:var(--txt2); display:flex; align-items:center; gap:16px; }
+  #topbar .badge { background:var(--blue); color:#fff; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600; }
+  #topbar .date  { color:var(--txt2); }
+
+  #content { flex:1; overflow-y:auto; padding:24px 28px; }
+
+  /* ── Pages ── */
+  .page { display:none; }
+  .page.active { display:block; }
+
+  /* ── KPI Row ── */
+  .kpi-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; margin-bottom:22px; }
+  .kpi-card {
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:16px 18px;
+    position:relative;
+    overflow:hidden;
+  }
+  .kpi-card::before {
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:3px;
+    background:var(--blue);
+  }
+  .kpi-card.green::before { background:var(--green); }
+  .kpi-card.amber::before { background:var(--accent); }
+  .kpi-card.red::before   { background:var(--red); }
+  .kpi-card .label { font-size:11px; color:var(--txt2); font-weight:600; text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px; }
+  .kpi-card .value { font-size:22px; font-weight:700; color:var(--txt); line-height:1; }
+  .kpi-card .sub   { font-size:11px; color:var(--txt2); margin-top:6px; }
+  .kpi-card .delta { display:inline-flex; align-items:center; gap:3px; font-size:11px; font-weight:600; padding:2px 6px; border-radius:4px; margin-top:6px; }
+  .kpi-card .delta.up   { background:#E8F5E9; color:var(--green); }
+  .kpi-card .delta.down { background:#FFEBEE; color:var(--red); }
+
+  /* ── Chart Grid ── */
+  .chart-grid { display:grid; gap:16px; margin-bottom:16px; }
+  .chart-grid.cols-2 { grid-template-columns:1fr 1fr; }
+  .chart-grid.cols-3 { grid-template-columns:2fr 1fr 1fr; }
+  .chart-grid.cols-13 { grid-template-columns:1.4fr 1fr; }
+
+  .chart-card {
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:18px 20px;
+  }
+  .chart-card .chart-title {
+    font-size:13px; font-weight:700; color:var(--txt);
+    margin-bottom:4px;
+  }
+  .chart-card .chart-sub {
+    font-size:11px; color:var(--txt2);
+    margin-bottom:16px;
+  }
+  .chart-card .chart-wrap { position:relative; }
+  canvas { max-width:100%; }
+
+  /* ── Insight Callout ── */
+  .insight {
+    background: #E3F2FD;
+    border-left: 3px solid var(--blue);
+    border-radius:4px;
+    padding:10px 14px;
+    margin-top:12px;
+    font-size:12px;
+    color:#0D47A1;
+    line-height:1.6;
+  }
+  .insight strong { font-weight:700; }
+
+  /* ── Table ── */
+  .data-table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  .data-table th { background:#F7F9FC; color:var(--txt2); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.4px; padding:9px 12px; text-align:left; border-bottom:2px solid var(--border); }
+  .data-table td { padding:9px 12px; border-bottom:1px solid #F0F0F0; color:var(--txt); }
+  .data-table tr:hover td { background:#FAFBFC; }
+  .seg-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:600; }
+  .seg-Consumer    { background:#E3F2FD; color:#1565C0; }
+  .seg-Corporate   { background:#E8F5E9; color:#2E7D32; }
+  .seg-Home\.Office { background:#FFF3E0; color:#E65100; }
+
+  /* ── Progress Bar ── */
+  .progress-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .progress-label { font-size:12px; color:var(--txt); min-width:140px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .progress-bar-wrap { flex:1; background:#F0F0F0; border-radius:4px; height:8px; }
+  .progress-bar { height:8px; border-radius:4px; background:var(--blue); }
+  .progress-val { font-size:12px; color:var(--txt2); min-width:70px; text-align:right; font-weight:600; }
+
+  /* ── Scrollbar ── */
+  #content::-webkit-scrollbar { width:6px; }
+  #content::-webkit-scrollbar-track { background:transparent; }
+  #content::-webkit-scrollbar-thumb { background:#C5CDD8; border-radius:4px; }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div class="logo">
+    <h2>Sales Revenue<br>Insights</h2>
+    <p>Superstore 2015–2018</p>
+  </div>
+  <nav>
+    <div class="section-label">Pages</div>
+    <a class="active" onclick="showPage('p1',this)"><span class="icon">📊</span> Executive Overview</a>
+    <a onclick="showPage('p2',this)"><span class="icon">👥</span> Customer Analytics</a>
+    <a onclick="showPage('p3',this)"><span class="icon">📦</span> Product Analytics</a>
+    <a onclick="showPage('p4',this)"><span class="icon">🗺️</span> Regional Analytics</a>
+    <a onclick="showPage('p5',this)"><span class="icon">🚚</span> Operational Analytics</a>
+  </nav>
+  <div class="footer">
+    <p>Built with Python · SQL<br>Power BI Dashboard Companion<br>© 2024 Ritesh</p>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="topbar">
+    <h1 id="page-title">Executive Overview</h1>
+    <div class="meta">
+      <span class="date">📅 Jan 2015 – Dec 2018</span>
+      <span class="badge">Live Data</span>
+    </div>
+  </div>
+
+  <div id="content">
+
+    <!-- PAGE 1: Executive Overview -->
+    <div class="page active" id="p1">
+      <div class="kpi-row">
+        <div class="kpi-card green">
+          <div class="label">Total Revenue</div>
+          <div class="value">$2.26M</div>
+          <div class="sub">All-time · 4 years</div>
+        </div>
+        <div class="kpi-card">
+          <div class="label">Total Profit</div>
+          <div class="value">$170.9K</div>
+          <div class="delta up">↑ 7.6% margin</div>
+        </div>
+        <div class="kpi-card amber">
+          <div class="label">Total Orders</div>
+          <div class="value">4,922</div>
+          <div class="sub">Unique order IDs</div>
+        </div>
+        <div class="kpi-card">
+          <div class="label">Total Customers</div>
+          <div class="value">793</div>
+          <div class="sub">Unique buyers</div>
+        </div>
+        <div class="kpi-card">
+          <div class="label">Avg Order Value</div>
+          <div class="value">$459</div>
+          <div class="sub">Per order ID</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="label">YoY Growth</div>
+          <div class="value">+20.3%</div>
+          <div class="sub">2017 → 2018</div>
+        </div>
+      </div>
+
+      <div class="chart-grid cols-2">
+        <div class="chart-card">
+          <div class="chart-title">Monthly Revenue Trend (2015–2018)</div>
+          <div class="chart-sub">48-month time series — clear Q4 seasonality visible</div>
+          <div class="chart-wrap"><canvas id="monthlyTrend" height="180"></canvas></div>
+          <div class="insight"><strong>Insight:</strong> Revenue peaks consistently in Sep–Dec each year, with Nov–Dec accounting for ~28% of annual revenue. Q1 underperforms by ~40% vs Q4.</div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Year-over-Year Performance</div>
+          <div class="chart-sub">Annual revenue and profit comparison</div>
+          <div class="chart-wrap"><canvas id="yoyChart" height="180"></canvas></div>
+          <div class="insight"><strong>Insight:</strong> 2016 saw a slight dip (–4.3%) before strong recoveries in 2017 (+30.6%) and 2018 (+20.3%), indicating successful strategic pivots.</div>
+        </div>
+      </div>
+
+      <div class="chart-grid cols-13">
+        <div class="chart-card">
+          <div class="chart-title">Revenue by Category</div>
+          <div class="chart-sub">Technology, Furniture, Office Supplies</div>
+          <div class="chart-wrap"><canvas id="catRevChart" height="160"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Profit Margin by Category</div>
+          <div class="chart-sub">Margin % — red = loss-making</div>
+          <div class="chart-wrap"><canvas id="catMarginChart" height="160"></canvas></div>
+          <div class="insight"><strong>Alert:</strong> Furniture operating at –4.8% margin. Tables sub-category is the primary driver of losses.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 2: Customer Analytics -->
+    <div class="page" id="p2">
+      <div class="kpi-row">
+        <div class="kpi-card green"><div class="label">Total Customers</div><div class="value">793</div><div class="sub">Unique buyers</div></div>
+        <div class="kpi-card"><div class="label">Consumer Revenue</div><div class="value">$1.15M</div><div class="delta up">50.8% share</div></div>
+        <div class="kpi-card amber"><div class="label">Corporate Revenue</div><div class="value">$688K</div><div class="delta up">30.5% share</div></div>
+        <div class="kpi-card"><div class="label">Home Office</div><div class="value">$425K</div><div class="delta up">18.8% share</div></div>
+        <div class="kpi-card green"><div class="label">Top Customer LTV</div><div class="value">$25K</div><div class="sub">Sean Miller</div></div>
+      </div>
+
+      <div class="chart-grid cols-2">
+        <div class="chart-card">
+          <div class="chart-title">Revenue by Customer Segment</div>
+          <div class="chart-sub">Consumer · Corporate · Home Office</div>
+          <div class="chart-wrap" style="max-height:240px;display:flex;justify-content:center;"><canvas id="segPieChart" height="220" width="300"></canvas></div>
+          <div class="insight"><strong>Insight:</strong> Consumer segment drives 50.8% of revenue but represents the most customers — indicating smaller individual basket sizes vs. Corporate.</div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Top 10 Customers by Revenue</div>
+          <div class="chart-sub">Lifetime revenue per customer</div>
+          <div class="chart-wrap"><canvas id="topCustChart" height="240"></canvas></div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Top 10 Customer Detail</div>
+        <div class="chart-sub">Revenue, segment, and ranking breakdown</div>
+        <table class="data-table" id="custTable"></table>
+      </div>
+    </div>
+
+    <!-- PAGE 3: Product Analytics -->
+    <div class="page" id="p3">
+      <div class="kpi-row">
+        <div class="kpi-card green"><div class="label">Technology Revenue</div><div class="value">$827K</div><div class="delta up">13.6% margin</div></div>
+        <div class="kpi-card"><div class="label">Office Supplies</div><div class="value">$705K</div><div class="delta up">13.2% margin</div></div>
+        <div class="kpi-card red"><div class="label">Furniture</div><div class="value">$729K</div><div class="delta down">–4.8% margin</div></div>
+        <div class="kpi-card amber"><div class="label">Unique Products</div><div class="value">1,861</div><div class="sub">SKUs in catalog</div></div>
+        <div class="kpi-card red"><div class="label">Loss-Making SKUs</div><div class="value">Tables</div><div class="sub">–$24.2K loss</div></div>
+      </div>
+
+      <div class="chart-grid cols-2">
+        <div class="chart-card">
+          <div class="chart-title">Profit by Sub-Category</div>
+          <div class="chart-sub">Ranked ascending — red bars = profit drain</div>
+          <div class="chart-wrap"><canvas id="subProfitChart" height="300"></canvas></div>
+          <div class="insight"><strong>Key Finding:</strong> Tables (–$24.2K) and Bookcases (–$10.2K) destroy Furniture's overall profitability. Average discount on Tables exceeds 30%, consuming all margin.</div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Discount Band Impact on Profit</div>
+          <div class="chart-sub">How deeper discounts destroy margin</div>
+          <div class="chart-wrap"><canvas id="discountChart" height="200"></canvas></div>
+          <div class="insight"><strong>Recommendation:</strong> Orders with 21–30% discounts generate –$21.4K total profit. Establishing a 20% discount ceiling would recover approximately $34K annually.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 4: Regional Analytics -->
+    <div class="page" id="p4">
+      <div class="kpi-row">
+        <div class="kpi-card green"><div class="label">West Region</div><div class="value">$710K</div><div class="delta up">31.4% of revenue</div></div>
+        <div class="kpi-card"><div class="label">East Region</div><div class="value">$670K</div><div class="delta up">29.6% of revenue</div></div>
+        <div class="kpi-card amber"><div class="label">Central Region</div><div class="value">$493K</div><div class="delta up">21.8% of revenue</div></div>
+        <div class="kpi-card"><div class="label">South Region</div><div class="value">$389K</div><div class="delta up">17.2% of revenue</div></div>
+      </div>
+
+      <div class="chart-grid cols-2">
+        <div class="chart-card">
+          <div class="chart-title">Revenue by Region</div>
+          <div class="chart-sub">West leads, South trails — regional mix opportunity</div>
+          <div class="chart-wrap"><canvas id="regRevChart" height="200"></canvas></div>
+          <div class="insight"><strong>Insight:</strong> West and East together generate 61% of all revenue. South region is underperforming relative to its geographic potential — consider targeted campaigns.</div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Profit by Region</div>
+          <div class="chart-sub">East leads profit despite West leading revenue</div>
+          <div class="chart-wrap"><canvas id="regProfChart" height="200"></canvas></div>
+          <div class="insight"><strong>Margin Analysis:</strong> All 4 regions maintain healthy margins (7.1%–7.9%). East converts revenue to profit most efficiently at 7.9% margin.</div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Regional Revenue Share</div>
+        <div class="chart-sub">Proportional contribution to total revenue</div>
+        <div id="regProgressBars" style="margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <!-- PAGE 5: Operational Analytics -->
+    <div class="page" id="p5">
+      <div class="kpi-row">
+        <div class="kpi-card"><div class="label">Standard Class</div><div class="value">$1.34M</div><div class="sub">Avg 5.0 days ship</div></div>
+        <div class="kpi-card green"><div class="label">Second Class</div><div class="value">$450K</div><div class="sub">Avg 3.2 days ship</div></div>
+        <div class="kpi-card amber"><div class="label">First Class</div><div class="value">$346K</div><div class="sub">Avg 2.2 days ship</div></div>
+        <div class="kpi-card"><div class="label">Same Day</div><div class="value">$125K</div><div class="sub">Same-day delivery</div></div>
+        <div class="kpi-card green"><div class="label">Peak Month</div><div class="value">Nov</div><div class="sub">$350K avg revenue</div></div>
+      </div>
+
+      <div class="chart-grid cols-2">
+        <div class="chart-card">
+          <div class="chart-title">Seasonal Demand by Month</div>
+          <div class="chart-sub">Aggregated across 2015–2018</div>
+          <div class="chart-wrap"><canvas id="seasonChart" height="200"></canvas></div>
+          <div class="insight"><strong>Operational Implication:</strong> September through December generates 43% of annual revenue. Inventory and staffing should be scaled 6–8 weeks ahead of September.</div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Revenue by Shipping Mode</div>
+          <div class="chart-sub">Standard Class dominates at 59% of revenue</div>
+          <div class="chart-wrap"><canvas id="shipModeChart" height="200"></canvas></div>
+          <div class="insight"><strong>Finding:</strong> Standard Class carries the largest revenue share but has the longest ship time (5.0 days avg). Expedited modes (Same Day, First Class) show high revenue-per-order.</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+// ─── Raw Data ────────────────────────────────────────────────
+const D = {
+  monthly_labels: ["2015-01","2015-02","2015-03","2015-04","2015-05","2015-06","2015-07","2015-08","2015-09","2015-10","2015-11","2015-12","2016-01","2016-02","2016-03","2016-04","2016-05","2016-06","2016-07","2016-08","2016-09","2016-10","2016-11","2016-12","2017-01","2017-02","2017-03","2017-04","2017-05","2017-06","2017-07","2017-08","2017-09","2017-10","2017-11","2017-12","2018-01","2018-02","2018-03","2018-04","2018-05","2018-06","2018-07","2018-08","2018-09","2018-10","2018-11","2018-12"],
+  monthly_revenue: [14205.71,4519.89,55205.8,27906.85,23644.3,34322.94,33781.54,27117.54,81623.53,31453.39,77907.66,68167.06,18066.96,11951.41,32339.32,34154.47,29959.53,23599.37,28608.26,36818.34,63133.61,31011.74,75249.4,74543.6,18542.49,22978.81,51165.06,38679.77,56656.91,39724.49,38320.78,30542.2,69193.39,59583.03,79066.5,95739.12,43476.47,19921.0,58863.41,35541.91,43825.98,48190.73,44825.1,62837.85,86152.89,77448.13,117938.15,83030.39],
+  yoy_years: [2015,2016,2017,2018],
+  yoy_revenue: [479856.21,459436.01,600192.55,722052.02],
+  yoy_profit:  [34295.0,32108.28,44842.58,59638.7],
+  cat_labels:  ["Furniture","Office Supplies","Technology"],
+  cat_revenue: [728658.58,705422.33,827455.87],
+  cat_profit:  [-34634.69,93206.85,112312.42],
+  cat_margin:  [-4.8,13.2,13.6],
+  sub_labels:  ["Tables","Bookcases","Chairs","Furnishings","Fasteners","Labels","Envelopes","Art","Supplies","Paper","Appliances","Machines","Accessories","Binders","Copiers","Storage","Phones"],
+  sub_profit:  [-24247.22,-10157.99,-244.72,15.24,479.21,2051.7,2772.6,4502.43,6815.24,13116.57,13323.8,17034.28,21860.96,22192.98,24087.84,27952.33,49329.34],
+  reg_labels:  ["Central","East","South","West"],
+  reg_revenue: [492646.91,669518.73,389151.46,710219.68],
+  reg_profit:  [38833.12,52889.01,28834.44,50328.0],
+  seg_labels:  ["Consumer","Corporate","Home Office"],
+  seg_revenue: [1148060.53,688494.07,424982.18],
+  top_cust_names: ["Sean Miller","Tamara Chand","Raymond Buch","Tom Ashbrook","Adrian Barton","Ken Lonsdale","Sanjit Chand","Hunter Lopez","Sanjit Engle","Christopher Conant"],
+  top_cust_rev:   [25043.05,19052.22,15117.34,14595.62,14473.57,14175.23,14142.33,12873.3,12209.44,12129.07],
+  top_cust_seg:   ["Home Office","Corporate","Consumer","Home Office","Consumer","Consumer","Consumer","Consumer","Consumer","Consumer"],
+  ship_labels:  ["First Class","Same Day","Second Class","Standard Class"],
+  ship_revenue: [345572.26,125219.04,449914.18,1340831.31],
+  ship_delay:   [2.2,0.0,3.2,5.0],
+  seasonal_revenue: [94291.63,59371.12,197573.59,136283.0,154086.72,145837.52,145535.69,157315.93,300103.41,199496.29,350161.71,321480.17],
+  month_names: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+  disc_labels:  ["0%","1–10%","11–20%","21–30%","31%+"],
+  disc_profit:  [959.45,125582.59,78627.77,-21350.47,-12934.77]
+};
+
+// ─── Helpers ─────────────────────────────────────────────────
+const fmt = v => v >= 1e6 ? `$${(v/1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(1)}K` : `$${v.toFixed(0)}`;
+const fmtFull = v => `$${Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2})}`;
+const BLUE='#1565C0', BLUE2='#1976D2', BLUE3='#42A5F5', GREEN='#2E7D32', RED='#C62828', AMBER='#FFB300';
+const colArr = [BLUE,BLUE2,BLUE3,'#0288D1','#0097A7'];
+const defaults = { animation:false, responsive:true, maintainAspectRatio:false,
+  plugins:{ legend:{ labels:{ font:{size:11}, color:'#5A6678' } } },
+  scales:{ x:{ ticks:{color:'#5A6678',font:{size:10}}, grid:{display:false} },
+            y:{ ticks:{color:'#5A6678',font:{size:10}}, grid:{color:'#F0F4F8'} } }
+};
+
+// ─── Page 1 Charts ────────────────────────────────────────────
+new Chart('monthlyTrend', { type:'line', data:{
+  labels: D.monthly_labels,
+  datasets:[{ label:'Monthly Revenue', data:D.monthly_revenue,
+    borderColor:BLUE, backgroundColor:'rgba(21,101,192,0.08)', fill:true, tension:0.35,
+    pointRadius:0, borderWidth:2 }]
+}, options:{ ...defaults, scales:{ x:{...defaults.scales.x, ticks:{...defaults.scales.x.ticks, maxTicksLimit:12}},
+  y:{...defaults.scales.y, ticks:{...defaults.scales.y.ticks, callback:v=>fmt(v)} } } }});
+
+new Chart('yoyChart', { type:'bar', data:{
+  labels: D.yoy_years,
+  datasets:[
+    { label:'Revenue', data:D.yoy_revenue, backgroundColor:BLUE, yAxisID:'y' },
+    { label:'Profit',  data:D.yoy_profit,  backgroundColor:AMBER, yAxisID:'y2' }
+  ]
+}, options:{ ...defaults, scales:{
+  x:{...defaults.scales.x},
+  y:{ ...defaults.scales.y, ticks:{...defaults.scales.y.ticks, callback:v=>fmt(v)} },
+  y2:{ position:'right', ticks:{color:'#5A6678',font:{size:10}, callback:v=>fmt(v)}, grid:{display:false} }
+}}});
+
+new Chart('catRevChart', { type:'bar', data:{
+  labels:D.cat_labels,
+  datasets:[{ label:'Revenue', data:D.cat_revenue, backgroundColor:[RED,BLUE,GREEN] }]
+}, options:{ ...defaults, indexAxis:'y', scales:{
+  x:{...defaults.scales.x, ticks:{...defaults.scales.x.ticks, callback:v=>fmt(v)}}, y:{...defaults.scales.y}
+}}});
+
+new Chart('catMarginChart', { type:'bar', data:{
+  labels:D.cat_labels,
+  datasets:[{ label:'Margin %', data:D.cat_margin,
+    backgroundColor:D.cat_margin.map(v=>v<0?RED:GREEN) }]
+}, options:{ ...defaults, indexAxis:'y', scales:{
+  x:{...defaults.scales.x, ticks:{...defaults.scales.x.ticks, callback:v=>v+'%'}}, y:{...defaults.scales.y}
+}}});
+
+// ─── Page 2 Charts ────────────────────────────────────────────
+new Chart('segPieChart', { type:'doughnut', data:{
+  labels:D.seg_labels,
+  datasets:[{ data:D.seg_revenue, backgroundColor:[BLUE,GREEN,AMBER],
+    borderWidth:2, borderColor:'#fff', hoverOffset:6 }]
+}, options:{ animation:false, responsive:false, cutout:'60%',
+  plugins:{ legend:{ position:'bottom', labels:{font:{size:11},color:'#5A6678'} } } }});
+
+new Chart('topCustChart', { type:'bar', data:{
+  labels:D.top_cust_names,
+  datasets:[{ label:'Revenue', data:D.top_cust_rev, backgroundColor:BLUE }]
+}, options:{ ...defaults, indexAxis:'y', scales:{
+  x:{...defaults.scales.x, ticks:{...defaults.scales.x.ticks, callback:v=>fmt(v)}}, y:{...defaults.scales.y}
+}}});
+
+// Customer table
+const tbl = document.getElementById('custTable');
+tbl.innerHTML = `<thead><tr><th>#</th><th>Customer</th><th>Segment</th><th>Lifetime Revenue</th><th>Share of Top-10</th></tr></thead>`;
+const tb = document.createElement('tbody');
+const tot10 = D.top_cust_rev.reduce((a,b)=>a+b,0);
+D.top_cust_names.forEach((n,i)=>{
+  const seg = D.top_cust_seg[i].replace(' ','.');
+  tb.innerHTML += `<tr>
+    <td style="color:var(--txt2);font-weight:700;">${i+1}</td>
+    <td style="font-weight:600;">${n}</td>
+    <td><span class="seg-badge seg-${seg}">${D.top_cust_seg[i]}</span></td>
+    <td style="font-weight:700;">${fmtFull(D.top_cust_rev[i])}</td>
+    <td>${(D.top_cust_rev[i]/tot10*100).toFixed(1)}%</td>
+  </tr>`;
+});
+tbl.appendChild(tb);
+
+// ─── Page 3 Charts ────────────────────────────────────────────
+new Chart('subProfitChart', { type:'bar', data:{
+  labels:D.sub_labels,
+  datasets:[{ label:'Profit ($)', data:D.sub_profit,
+    backgroundColor:D.sub_profit.map(v=>v<0?RED:BLUE) }]
+}, options:{ ...defaults, indexAxis:'y', scales:{
+  x:{...defaults.scales.x, ticks:{...defaults.scales.x.ticks, callback:v=>fmt(v)}}, y:{...defaults.scales.y}
+}}});
+
+new Chart('discountChart', { type:'bar', data:{
+  labels:D.disc_labels,
+  datasets:[{ label:'Total Profit ($)', data:D.disc_profit,
+    backgroundColor:D.disc_profit.map(v=>v<0?RED:GREEN) }]
+}, options:{ ...defaults, scales:{
+  x:{...defaults.scales.x},
+  y:{...defaults.scales.y, ticks:{...defaults.scales.y.ticks, callback:v=>fmt(v)}}
+}}});
+
+// ─── Page 4 Charts ────────────────────────────────────────────
+new Chart('regRevChart', { type:'bar', data:{
+  labels:D.reg_labels,
+  datasets:[{ label:'Revenue', data:D.reg_revenue, backgroundColor:[BLUE2,BLUE,BLUE3,'#0288D1'] }]
+}, options:{ ...defaults, scales:{
+  x:{...defaults.scales.x},
+  y:{...defaults.scales.y, ticks:{...defaults.scales.y.ticks, callback:v=>fmt(v)}}
+}}});
+
+new Chart('regProfChart', { type:'bar', data:{
+  labels:D.reg_labels,
+  datasets:[{ label:'Profit', data:D.reg_profit, backgroundColor:[AMBER,GREEN,BLUE,BLUE2] }]
+}, options:{ ...defaults, scales:{
+  x:{...defaults.scales.x},
+  y:{...defaults.scales.y, ticks:{...defaults.scales.y.ticks, callback:v=>fmt(v)}}
+}}});
+
+// Regional progress bars
+const totalRev = D.reg_revenue.reduce((a,b)=>a+b,0);
+const pb = document.getElementById('regProgressBars');
+const sortedReg = D.reg_labels.map((l,i)=>({l,r:D.reg_revenue[i]})).sort((a,b)=>b.r-a.r);
+sortedReg.forEach(({l,r}) => {
+  const pct = (r/totalRev*100).toFixed(1);
+  pb.innerHTML += `<div class="progress-row">
+    <div class="progress-label">${l}</div>
+    <div class="progress-bar-wrap"><div class="progress-bar" style="width:${pct}%"></div></div>
+    <div class="progress-val">${fmt(r)} (${pct}%)</div>
+  </div>`;
+});
+
+// ─── Page 5 Charts ────────────────────────────────────────────
+new Chart('seasonChart', { type:'bar', data:{
+  labels:D.month_names,
+  datasets:[{ label:'Revenue', data:D.seasonal_revenue,
+    backgroundColor:D.seasonal_revenue.map(v => v > 250000 ? RED : v > 150000 ? AMBER : BLUE) }]
+}, options:{ ...defaults, scales:{
+  x:{...defaults.scales.x},
+  y:{...defaults.scales.y, ticks:{...defaults.scales.y.ticks, callback:v=>fmt(v)}}
+}}});
+
+new Chart('shipModeChart', { type:'doughnut', data:{
+  labels:D.ship_labels,
+  datasets:[{ data:D.ship_revenue, backgroundColor:[GREEN,AMBER,BLUE,BLUE2],
+    borderWidth:2, borderColor:'#fff' }]
+}, options:{ animation:false, responsive:true, cutout:'50%',
+  plugins:{ legend:{ position:'bottom', labels:{font:{size:11},color:'#5A6678'} } } }});
+
+// ─── Navigation ───────────────────────────────────────────────
+const pageTitles = {p1:'Executive Overview',p2:'Customer Analytics',p3:'Product Analytics',p4:'Regional Analytics',p5:'Operational Analytics'};
+function showPage(id, el) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('nav a').forEach(a=>a.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+  document.getElementById('page-title').textContent = pageTitles[id];
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+-- ============================================================
+-- Power BI DAX Measures Reference
+-- File: dax_measures.txt
+-- Project: Sales Revenue Insights Dashboard
+-- Connect to: outputs/executive_summary.csv, customer_summary.csv,
+--             product_summary.csv, regional_summary.csv, monthly_summary.csv
+-- ============================================================
+
+-- ──────────────────────────────────────────────
+-- TABLE: Connect superstore_enriched.csv as [Orders]
+-- ──────────────────────────────────────────────
+
+-- ─── CORE REVENUE MEASURES ──────────────────
+Total Revenue =
+    SUM(Orders[Sales])
+
+Total Profit =
+    SUM(Orders[Profit])
+
+Profit Margin % =
+    DIVIDE(
+        SUM(Orders[Profit]),
+        SUM(Orders[Sales])
+    )
+
+Total Orders =
+    DISTINCTCOUNT(Orders[Order ID])
+
+Total Customers =
+    DISTINCTCOUNT(Orders[Customer ID])
+
+Avg Order Value =
+    DIVIDE(
+        SUM(Orders[Sales]),
+        DISTINCTCOUNT(Orders[Order ID])
+    )
+
+Units Sold =
+    SUM(Orders[Quantity])
+
+
+-- ─── TIME INTELLIGENCE ──────────────────────
+Revenue YTD =
+    TOTALYTD(
+        SUM(Orders[Sales]),
+        'Date'[Date]
+    )
+
+Revenue Last Year =
+    CALCULATE(
+        SUM(Orders[Sales]),
+        SAMEPERIODLASTYEAR('Date'[Date])
+    )
+
+YoY Revenue Growth % =
+    DIVIDE(
+        [Total Revenue] - [Revenue Last Year],
+        [Revenue Last Year]
+    )
+
+Revenue MTD =
+    TOTALMTD(
+        SUM(Orders[Sales]),
+        'Date'[Date]
+    )
+
+Revenue QTD =
+    TOTALQTD(
+        SUM(Orders[Sales]),
+        'Date'[Date]
+    )
+
+
+-- ─── CUSTOMER MEASURES ──────────────────────
+Revenue per Customer =
+    DIVIDE(
+        SUM(Orders[Sales]),
+        DISTINCTCOUNT(Orders[Customer ID])
+    )
+
+Avg Orders per Customer =
+    DIVIDE(
+        DISTINCTCOUNT(Orders[Order ID]),
+        DISTINCTCOUNT(Orders[Customer ID])
+    )
+
+Repeat Customer Rate % =
+    VAR CustomerOrderCounts =
+        SUMMARIZE(
+            Orders,
+            Orders[Customer ID],
+            "OrderCount", DISTINCTCOUNT(Orders[Order ID])
+        )
+    VAR RepeatCustomers =
+        COUNTROWS(FILTER(CustomerOrderCounts, [OrderCount] > 1))
+    VAR TotalCustomers =
+        COUNTROWS(CustomerOrderCounts)
+    RETURN
+        DIVIDE(RepeatCustomers, TotalCustomers)
+
+
+-- ─── PRODUCT / MARGIN MEASURES ───────────────
+Category Margin % =
+    DIVIDE(
+        CALCULATE(SUM(Orders[Profit]), ALLEXCEPT(Orders, Orders[Category])),
+        CALCULATE(SUM(Orders[Sales]),  ALLEXCEPT(Orders, Orders[Category]))
+    )
+
+Avg Discount % =
+    AVERAGE(Orders[Discount])
+
+Revenue Share % =
+    DIVIDE(
+        SUM(Orders[Sales]),
+        CALCULATE(SUM(Orders[Sales]), ALL(Orders))
+    )
+
+
+-- ─── SHIPPING MEASURES ───────────────────────
+Avg Ship Days =
+    AVERAGEX(
+        Orders,
+        DATEDIFF(Orders[Order Date], Orders[Ship Date], DAY)
+    )
+
+
+-- ─── DYNAMIC KPI CARD FORMATTING ─────────────
+KPI_Revenue_Label =
+    VAR Rev = [Total Revenue]
+    RETURN
+        IF(Rev >= 1000000,
+            FORMAT(Rev / 1000000, "$0.00") & "M",
+            FORMAT(Rev / 1000, "$0.0") & "K"
+        )
+
+KPI_Margin_Color =
+    IF([Profit Margin %] >= 0, "#2E7D32", "#C62828")
+
+
+-- ─── DATA MODEL RELATIONSHIPS (Power BI Desktop) ─
+-- Orders[Customer ID]  → customer_summary[Customer ID]  (Many:1)
+-- Orders[Product ID]   → product_summary[Product ID]    (Many:1)
+-- Orders[Order Date]   → 'Date'[Date]                   (Many:1)
+-- Orders[State]        → regional_summary[State]         (Many:1)
+--
+-- Create Date table with:
+-- Date = CALENDAR(DATE(2015,1,1), DATE(2018,12,31))
+-- Year  = YEAR('Date'[Date])
+-- Month = MONTH('Date'[Date])
+-- MonthName = FORMAT('Date'[Date], "MMM")
+-- Quarter = QUARTER('Date'[Date])
+-- YearMonth = FORMAT('Date'[Date], "YYYY-MM")
