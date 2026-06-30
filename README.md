@@ -179,28 +179,6 @@ python -c "import duckdb; duckdb.sql(\"CREATE TABLE orders AS SELECT * FROM read
 
 ---
 
-## 💼 Resume Bullets (copy-paste ready)
-
-```
-• Queried and transformed 9,800-row transactional dataset using SQL (sales, customer, 
-  and product analytical views) before building an interactive Power BI-style dashboard 
-  to monitor $2.26M in revenue across KPIs, categories, and regions.
-
-• Identified that Furniture sub-categories (Tables, Bookcases) were generating 
-  negative margins at scale due to uncapped discounting — quantified as –$34K in 
-  recoverable annual profit with a 20% discount ceiling policy recommendation.
-
-• Conducted RFM customer segmentation using Python, classifying 793 customers into 
-  Champions, Loyal, Potential Loyalist, At-Risk, and Lost segments to prioritize 
-  retention and re-engagement strategy.
-
-• Built a 5-page interactive HTML dashboard (Chart.js) with drill-down views across 
-  products, customers, regions, and shipping operations — surfacing a Q4 seasonality 
-  pattern that concentrates 43% of annual revenue in Sep–Dec.
-```
-
----
-
 ## 📬 Contact
 
 **Built by:** Ritesh  
